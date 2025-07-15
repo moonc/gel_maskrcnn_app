@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Image - Gel Spot Detection{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>
+                    Upload Gel Image for Analysis
+                </h4>
+            </div>
+            
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <!-- File Upload -->
+                    <div class="mb-4">
+                        <label for="fileInput" class="form-label">Select Gel Image</label>
+                        <input type="file" class="form-control" id="fileInput" name="file" 
+                               accept=".png,.jpg,.jpeg,.bmp,.tiff" required>
+                        <div class="form-text">
+                            Supported formats: PNG, JPG, JPEG, BMP, TIFF (Max size: 16MB)
+                        </div>
+                    </div>
+
+                    <!-- Image Preview -->
+                    <div id="imagePreview" class="mb-4" style="display: none;">
+                        <label class="form-label">Preview</label>
+                        <div class="text-center">
+                            <img id="previewImg" class="img-fluid rounded border" style="max-height: 300px;">
+                        </div>
+                    </div>
+
+                    <!-- Parameters -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="scoreThreshold" class="form-label">
+                                Score Threshold
+                                <i class="fas fa-info-circle" data-bs-toggle="tooltip" 
+                                   title="Minimum confidence score for detections (0.0-1.0)"></i>
+                            </label>
+                            <input type="range" class="form-range" id="scoreThreshold" 
+                                   name="score_threshold" min="0.1" max="1.0" step="0.1" value="0.8">
+                            <div class="form-text">
+                                Current: <span id="scoreValue">0.8</span>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="maskThreshold" class="form-label">
+                                Mask Threshold
+                                <i class="fas fa-info-circle" data-bs-toggle="tooltip" 
+                                   title="Threshold for mask generation (0.0-1.0)"></i>
+                            </label>
+                            <input type="range" class="form-range" id="maskThreshold" 
+                                   name="mask_threshold" min="0.1" max="1.0" step="0.1" value="0.8">
+                            <div class="form-text">
+                                Current: <span id="maskValue">0.8</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <i class="fas fa-play me-2"></i>
+                            Start Analysis
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-server me-2"></i>
+                    System Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="systemStatus">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-primary" id="cpuUsage">--</div>
+                            <small class="text-muted">CPU Usage</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-info" id="memoryUsage">--</div>
+                            <small class="text-muted">Memory Usage</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-warning" id="diskUsage">--</div>
+                            <small class="text-muted">Disk Usage</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="h4 text-success" id="activeJobs">--</div>
+                            <small class="text-muted">Active Jobs</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+});
+
+// File preview
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('previewImg').src = e.target.result;
+            document.getElementById('imagePreview').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// Threshold sliders
+document.getElementById('scoreThreshold').addEventListener('input', function(e) {
+    document.getElementById('scoreValue').textContent = e.target.value;
+});
+
+document.getElementById('maskThreshold').addEventListener('input', function(e) {
+    document.getElementById('maskValue').textContent = e.target.value;
+});
+
+// Form submission
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+    
+    fetch('/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-play me-2"></i>Start Analysis';
+        } else {
+            window.location.href = data.redirect_url;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Upload failed. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-play me-2"></i>Start Analysis';
+    });
+});
+
+// Update system status
+function updateSystemStatus() {
+    fetch('/api/system/status')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('cpuUsage').textContent = data.cpu_percent.toFixed(1) + '%';
+            document.getElementById('memoryUsage').textContent = data.memory_percent.toFixed(1) + '%';
+            document.getElementById('diskUsage').textContent = data.disk_usage.toFixed(1) + '%';
+            document.getElementById('activeJobs').textContent = data.active_jobs;
+        })
+        .catch(error => console.error('Error fetching system status:', error));
+}
+
+// Update system status every 5 seconds
+updateSystemStatus();
+setInterval(updateSystemStatus, 5000);
+</script>
+{% endblock %}

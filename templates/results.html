@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Results - {{ job_id[:8] }},{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <!-- Results Header -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Analysis Results - {{ job_id[:8] }}...
+                </h4>
+            </div>
+            
+            <div class="card-body">
+                <!-- Summary Stats -->
+                <div class="row mb-4">
+                    <div class="col-md-3 text-center">
+                        <div class="h2 text-success">
+                            {{ job_info.get('results', {}).get('detected_objects', 0) }}
+                        </div>
+                        <small class="text-muted">Objects Detected</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="h2 text-info">
+                            {{ job_info.get('results', {}).get('processing_time', 'N/A') }}
+                        </div>
+                        <small class="text-muted">Processing Time</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="h2 text-warning">
+                            {{ job_info.get('results', {}).get('prediction_images', [])|length }}
+                        </div>
+                        <small class="text-muted">Result Images</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="h2 text-primary">
+                            {% if job_info.end_time and job_info.start_time %}
+                                {{ ((job_info.end_time|strptime('%Y-%m-%dT%H:%M:%S.%f') - job_info.start_time|strptime('%Y-%m-%dT%H:%M:%S.%f')).total_seconds() / 60)|round(1) }}m
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Total Time</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prediction Images -->
+        {% if job_info.get('results') and job_info.results.get('prediction_images') %}
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-images me-2"></i>Prediction Results
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for image_path in job_info.results.prediction_images %}
+                    <div class="col-md-12 mb-3">
+                        <div class="text-center">
+                            <img src="{{ url_for('static', filename=image_path.replace('results_' + job_id + '/', '')) }}" 
+                                 class="img-fluid result-image" 
+                                 alt="Prediction Result">
+                            <div class="mt-2">
+                                <a href="{{ url_for('download_result', job_id=job_id, filename=image_path|basename) }}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-download me-1"></i>Download Image
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Detailed Results -->
+        {% if job_info.get('results') and job_info.results.get('results_file') %}
+        <div class="card shadow mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-alt me-2"></i>Detailed Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Detection Summary</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Objects Found:</strong> {{ job_info.results.get('detected_objects', 0) }}</li>
+                            <li><strong>Processing Time:</strong> {{ job_info.results.get('processing_time', 'N/A') }}</li>
+                            <li><strong>Input Image:</strong> {{ job_info.get('image_path', 'N/A')|basename }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Download Options</h6>
+                        <div class="d-grid gap-2">
+                            {% if job_info.results.results_file %}
+                            <a href="{{ url_for('download_result', job_id=job_id, filename='test_results.txt') }}" 
+                               class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-file-text me-1"></i>Download Results File
+                            </a>
+                            {% endif %}
+                            {% for image_path in job_info.results.get('prediction_images', []) %}
+                            <a href="{{ url_for('download_result', job_id=job_id, filename=image_path|basename) }}" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-image me-1"></i>Download {{ image_path|basename }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="card shadow">
+            <div class="card-body text-center">
+                <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+                    <i class="fas fa-upload me-1"></i>Analyze Another Image
+                </a>
+                <button class="btn btn-outline-danger" onclick="cleanupJob('{{ job_id }}')">
+                    <i class="fas fa-trash me-1"></i>Delete Results
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function cleanupJob(jobId) {
+    if (confirm('Are you sure you want to delete these results? This action cannot be undone.')) {
+        // Implement cleanup functionality
+        showAlert('Results cleanup functionality not yet implemented', 'info');
+    }
+}
+</script>
+{% endblock %}
