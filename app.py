@@ -17,6 +17,34 @@ from utils.result_parser import ResultParser
 app = Flask(__name__)
 app.config.from_object(config['development'])
 
+@app.template_filter('basename')
+def basename_filter(path):
+    """Extract basename from file path"""
+    return os.path.basename(path)
+
+@app.template_filter('strptime')
+def strptime_filter(date_string, format_string='%Y-%m-%dT%H:%M:%S.%f'):
+    """Parse datetime string"""
+    try:
+        # Handle ISO format with or without microseconds
+        if '.' in date_string:
+            return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S.%f')
+        else:
+            return datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%S')
+    except ValueError:
+        # Fallback for different formats
+        try:
+            return datetime.strptime(date_string, format_string)
+        except ValueError:
+            return datetime.now()  # Fallback to current time
+
+@app.template_filter('strftime')
+def strftime_filter(datetime_obj, format_string='%Y-%m-%d %H:%M:%S'):
+    """Format datetime object"""
+    if isinstance(datetime_obj, str):
+        # If it's a string, parse it first
+        datetime_obj = strptime_filter(datetime_obj)
+    return datetime_obj.strftime(format_string)
 # Initialize SocketIO for real-time updates
 socketio = SocketIO(app, cors_allowed_origins="*")
 
