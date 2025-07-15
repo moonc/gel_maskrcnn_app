@@ -37,13 +37,21 @@ class NextflowPipelineManager:
                 'start_time': datetime.now().isoformat()
             }
     
-        # Check if model exists (for test mode)
-        model_path = self.pipeline_dir / 'results' / 'models' / 'maskrcnn_gel_spots.pth'
-        if not model_path.exists():
+        # Check for model in app directory first, then pipeline directory
+        app_model_path = Path('/home/moon/gel_app/models/maskrcnn_gel_spots.pth')
+        pipeline_model_path = self.pipeline_dir / 'results' / 'models' / 'maskrcnn_gel_spots.pth'
+    
+        if app_model_path.exists():
+            model_path = str(app_model_path.absolute())
+            print(f"[{job_id}] Using model from app directory: {model_path}")
+        elif pipeline_model_path.exists():
+            model_path = str(pipeline_model_path.absolute())
+            print(f"[{job_id}] Using model from pipeline directory: {model_path}")
+        else:
             return job_id, {
                 'job_id': job_id,
                 'status': 'failed',
-                'error': f'Trained model not found: {model_path}. Please train the model first.',
+                'error': f'Trained model not found in:\n- {app_model_path}\n- {pipeline_model_path}',
                 'start_time': datetime.now().isoformat()
             }
     
@@ -51,12 +59,13 @@ class NextflowPipelineManager:
         output_dir = self.pipeline_dir / f'results_{job_id}'
         output_dir.mkdir(exist_ok=True)
     
-        # Prepare command with low_memory profile included
+        # CRITICAL: Make sure this command includes --model_file with full path
         cmd = [
             'nextflow', 'run', str(self.pipeline_dir / 'main.nf'),
-            '-profile', 'conda,low_memory,monitor',  # Added low_memory profile
+            '-profile', 'docker,low_memory,monitor',
             '--mode', 'test',
             '--test_image', os.path.abspath(image_path),
+            '--model_file', model_path,  # ← THIS LINE MUST BE HERE
             '--outdir', str(output_dir),
             '--score_threshold', str(kwargs.get('score_threshold', 0.8)),
             '--mask_threshold', str(kwargs.get('mask_threshold', 0.8)),
@@ -66,7 +75,7 @@ class NextflowPipelineManager:
             '-resume'
         ]
     
-        # Rest of the method remains the same...
+        # Create job info
         job_info = {
             'job_id': job_id,
             'status': 'starting',
@@ -76,26 +85,23 @@ class NextflowPipelineManager:
             'results_dir': str(output_dir),
             'process': None,
             'progress': 0,
-            'pipeline_dir': str(self.pipeline_dir)
+            'pipeline_dir': str(self.pipeline_dir),
+            'model_path': model_path
         }
     
         try:
-            print(f"[{job_id}] Starting Nextflow with low_memory profile:")
+            print(f"[{job_id}] Starting Nextflow with Docker:")
             print(f"[{job_id}] Command: {' '.join(cmd)}")
-            print(f"[{job_id}] Working directory: {self.pipeline_dir}")
+            print(f"[{job_id}] Model path being passed: {model_path}")
         
-            # Start the process with proper environment
-            env = os.environ.copy()
-            env['NEXTFLOW_BIN_DIR'] = str(self.pipeline_dir / 'bin')
-        
+            # Start the process
             process = subprocess.Popen(
                 cmd,
                 cwd=str(self.pipeline_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1,
-                env=env
+                bufsize=1
             )
         
             job_info['process'] = process
@@ -112,7 +118,7 @@ class NextflowPipelineManager:
             )
             monitor_thread.start()
         
-            print(f"[{job_id}] Job started with PID {process.pid} using low_memory profile")
+            print(f"[{job_id}] Job started with PID {process.pid} using Docker")
             return job_id, job_info
         
         except Exception as e:
@@ -123,7 +129,6 @@ class NextflowPipelineManager:
             job_info['error'] = error_msg
             job_info['end_time'] = datetime.now().isoformat()
             return job_id, job_info
-    
     def _monitor_process(self, job_id):
         """Monitor process execution in background thread"""
         
