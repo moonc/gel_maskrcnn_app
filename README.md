@@ -19,12 +19,16 @@ See: https://github.com/moonc/Nextflow-MASKRCNN-GEL
 
 ## Setup with Conda
 
-### 1. Clone the Repository
+### 1. Clone the Repositories
 
 ```bash
 git clone https://github.com/moonc/gel_maskrcnn_app.git
 cd gel_maskrcnn_app
 ```
+```bash
+git clone https://github.com/moonc/Nextflow-MASKRCNN-GEL.git
+```
+
 
 ### 2. Create Conda Environment
 
