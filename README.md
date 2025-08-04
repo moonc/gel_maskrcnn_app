@@ -12,9 +12,10 @@ See: https://github.com/moonc/Nextflow-MASKRCNN-GEL
 ## Requirements
 
 - Python 3.10
-- Conda (recommended)
+- Conda 
 - PyTorch and Torchvision
 - Flask
+- Nextflow-MASKRCNN-GEL Repository
 
 ## Setup with Conda
 
